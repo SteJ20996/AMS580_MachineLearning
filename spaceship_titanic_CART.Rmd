@@ -1,0 +1,117 @@
+---
+title: "AMS 580 project Kaggle: Spaceship Titanic, using Classification and Regression Tree"
+author: "Yizhen Jia"
+date: "2022/4/17"
+output: word_document
+---
+
+```{r}
+if (!requireNamespace("caTools")) install.packages('caTools')
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+if (!requireNamespace("rpart")) install.packages('rpart')
+if (!requireNamespace("rattle")) install.packages('rattle')
+library(caTools)
+library(tidyverse)
+library(caret)
+library(rpart)
+library(rattle)
+```
+Q1. 
+```{r}
+train.data <- read.csv('~/Desktop/Spring 2022/AMS 580/580 group proj/spaceship-titanic/spcshipTtn-train.csv')
+train.data <- subset(train.data, select = -c(PassengerId, Cabin, Name))
+train.data <- na.omit(train.data)
+train.data$CryoSleep = ifelse(train.data$CryoSleep == "True", 1, 0)
+train.data$VIP = ifelse(train.data$VIP == "True", 1, 0)
+train.data$Transported = ifelse(train.data$Transported == "True", 1, 0)
+
+
+test.data <- read.csv('~/Desktop/Spring 2022/AMS 580/580 group proj/spaceship-titanic/spcshipTtn-test.csv')
+test.data <- subset(test.data, select = -c(PassengerId, Cabin, Name))
+test.data <- na.omit(test.data)
+test.data$CryoSleep = ifelse(test.data$CryoSleep == "True", 1, 0)
+test.data$VIP = ifelse(test.data$VIP == "True", 1, 0)
+
+train.data$CryoSleep<- as.factor(train.data$CryoSleep)
+train.data$VIP<- as.factor(train.data$VIP)
+
+train.data$Transported <- as.factor(train.data$Transported)
+
+test.data$CryoSleep<- as.factor(test.data$CryoSleep)
+test.data$VIP<- as.factor(test.data$VIP)
+
+set.seed(123)
+training.samples <- train.data$Transported %>%
+  createDataPartition(p = 0.9, list = FALSE)
+Ttrain.data  <- train.data[training.samples, ]
+Ttest.data <- train.data[-training.samples, ]
+
+str(Ttrain.data) # 6859 obs
+str(Ttest.data) # 761 obs
+str(test.data) # 3740 obs
+str(train.data) # 7620 obs
+```
+
+Q2.
+```{r}
+# Build a fully grown tree using the training data and draw the tree plot using rattle
+model <- rpart(Transported ~., data = train.data, control = rpart.control(cp=0))
+par(xpd = NA)
+fancyRpartPlot(model)
+
+printcp(model)
+prune.model <- prune(model, cp=0.02)   #prune the tree with cp=0.02
+printcp(prune.model)
+
+# Use the model tree to predict the whether the passenger was transported to another dimension in the testing data
+pred <- predict(model,newdata = Ttest.data, type ='class')
+pred <- ifelse(pred == 1, 'predict_1', 'predict_0')
+head(pred)
+
+# Compute the Confusion Matrix and report the sensitivity, specificity, and overall accuracy for the testing data.
+table(pred,Ttest.data$Transported)
+
+# Sensitivity:
+(333) / (333 + 50)
+# Specificity:
+(314) / (314 + 60)
+# Overall Accuracy:
+(333 + 314) / (314 + 333 + 50 + 60)
+
+```
+
+Q3.
+```{r}
+# Make a tree robust and prune the fully grown using the training data with 10-fold cross validation
+set.seed(123)
+# Complexity plot
+model2 <- train(
+  Transported ~., data = train.data, method = "rpart",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 100)
+plot(model2)
+#Report the best CP value
+model2$bestTune
+# Draw the pruned tree using rattle
+fancyRpartPlot(model2$finalModel)
+```
+
+Q4.
+```{r}
+# Use optimal pruned tree to predict the whether the passenger was transported to another dimension in the testing data
+pred <- predict(model2, newdata = Ttest.data)
+pred <- ifelse(pred == 1, 'predict_1', 'predict_0')
+head(pred)
+
+# Compute the Confusion Matrix and report the sensitivity, specificity, and overall accuracy for the testing data.
+table(pred,Ttest.data$Transported)
+
+# Sensitivity:
+(309) / (309 + 74)
+# Specificity:
+(290) / (290 + 88)
+# Overall Accuracy:
+(290 + 309) / (290 + 309 + 74 + 88)
+```
+

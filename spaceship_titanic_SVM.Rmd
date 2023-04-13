@@ -1,0 +1,150 @@
+---
+title: "AMS 580 project Kaggle: Spaceship Titanic, using Support Vector Machine"
+author: "580 Group Project (YJ,JY,BL,YG)"
+date: "2022/5/10"
+output: word_document
+---
+
+```{r}
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+
+library(tidyverse)
+library(caret)
+```
+
+Read Training data set and divide the cleaned data into 90% training and 10% testing.
+```{r}
+train.data <- read.csv('~/Desktop/Spring 2022/AMS 580/580 group proj/spaceship-titanic/spcshipTtn-train.csv')
+train.data <- subset(train.data, select = -c(PassengerId, Cabin, Name))
+train.data <- na.omit(train.data)
+
+train.data$CryoSleep = ifelse(train.data$CryoSleep == "True", 1, 0)
+train.data$VIP = ifelse(train.data$VIP == "True", 1, 0)
+train.data$Transported = ifelse(train.data$Transported == "True", 1, 0)
+
+train.data$CryoSleep<- as.factor(train.data$CryoSleep)
+train.data$VIP<- as.factor(train.data$VIP)
+train.data$Transported <- as.factor(train.data$Transported)
+
+set.seed(123)
+training.samples <- train.data$Transported %>%
+  createDataPartition(p = 0.90, list = FALSE)
+Ttrain.data  <- train.data[training.samples, ]
+Ttest.data <- train.data[-training.samples, ]
+
+str(Ttrain.data) # 6859 obs
+str(Ttest.data) # 761 obs
+```
+
+Build the best classifier to predict whether a check is forged or not using the training data and the linear SVM. 
+Contains confusion matrix and the sensitivity. 
+Finally, report the overall accuracy.
+```{r}
+# Fit the model on the training set
+set.seed(123)
+model <- train(
+  Transported ~., data = Ttrain.data, method = "svmLinear",
+  trControl = trainControl("cv", number = 10),
+  # This will scale all the predictors in the model
+  )
+
+# Make predictions on the test data
+predicted.classes <- model %>% predict(Ttest.data)
+head(predicted.classes)
+
+# Confusion matrix
+confusionMatrix(factor(predicted.classes), factor(Ttest.data$Transported), positive = '1')
+
+# Accuracy 0.8133
+```
+
+Build the best classifier to predict whether a check is forged or not using the training data and the linear SVM. 
+This time find the optimal cost parameter C by using tuneGrid = expand.grid(C = seq(0, 2, length = 20)).
+Contains the plot of model accuracy vs different values of cost, confusion matrix and the sensitivity. 
+Finally, report the overall accuracy.
+```{r}
+# Fit the model on the training set
+set.seed(123)
+model <- train(
+  Transported ~., data = Ttrain.data, method = "svmLinear",
+  trControl = trainControl("cv", number = 10),
+  tuneGrid = expand.grid(C = seq(0.1, 2, length = 19))
+  )
+
+# Plot model accuracy vs different values of Cost
+plot(model)
+
+# Print the best tuning parameter C that
+# maximizes model accuracy
+model$bestTune
+
+# Make predictions on the test data
+predicted.classes <- model %>% predict(Ttest.data)
+
+# Confusion matrix
+confusionMatrix(factor(predicted.classes), factor(Ttest.data$Transported), positive = '1')
+
+# Accuracy 0.8120
+```
+
+Build the best classifier to predict whether a check is forged or not using the training data and the SVM with radial basis kernel. 
+This time find the optimal tuning parameters C and sigma by using the command line: tuneLength = 10.
+Contains confusion matrix and the sensitivity. 
+Finally, report the overall accuracy.
+```{r}
+# Fit the model on the training set
+set.seed(123)
+model <- train(
+  Transported ~., data = Ttrain.data, method = "svmRadial",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+  )
+# Print the best tuning parameter sigma and C that
+# maximizes model accuracy
+model$bestTune
+
+# Make predictions on the test data
+predicted.classes <- model %>% predict(Ttest.data)
+
+# Confusion matrix
+confusionMatrix(factor(predicted.classes), factor(Ttest.data$Transported), positive = '1')
+
+# Accuracy 0.8054
+```
+
+Build the best classifier to predict whether a check is forged or not using the training data and the SVM with polynomial basis kernel.
+This time find the optimal tuning parameters C, degree and scale by using the command line: tuneLength = 3.
+Contains confusion matrix and the sensitivity. 
+Finally, report the overall accuracy.
+```{r}
+# Fit the model on the training set
+set.seed(123)
+model <- train(
+  Transported ~., data = Ttrain.data, method = "svmPoly",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 3
+  )
+# Print the best tuning parameter sigma and C that
+# maximizes model accuracy
+model$bestTune
+
+# Make predictions on the test data
+predicted.classes <- model %>% predict(Ttest.data)
+
+# Confusion matrix
+confusionMatrix(factor(predicted.classes), factor(Ttest.data$Transported), positive = '1')
+
+# Accuracy 0.8119
+```
+
+
+Overall accuracy rate:
+
+Linear: About 0.8133 (The Best) & 0.8120 (using tuneGrid)
+
+Radial basis kernel: 0.8054
+
+Polynomial kernel: 0.8119
+
+SVM Linear gets the highest accuracy.

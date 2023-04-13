@@ -1,0 +1,87 @@
+---
+title: "AMS 580 project Kaggle: Spaceship Titanic, using Random Forest"
+author: "Yizhen Jia"
+date: "2022/3/29"
+output: pdf_document
+---
+
+# Load packages
+```{r}
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+if (!requireNamespace("randomForest")) install.packages('randomForest')
+if (!requireNamespace("party")) install.packages('party')
+
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(party)
+```
+
+# Deal with data
+```{r}
+data <- read.csv("Titantrain.csv", header = T, na.strings = c("","NA"))
+data <- na.omit(data)
+data <- subset(data, select = -c(PassengerId, Cabin, Name))
+str(data)
+data$Transported <- as.factor(data$Transported)
+data$HomePlanet <- as.factor(data$HomePlanet)
+data$CryoSleep <- as.factor(data$CryoSleep)
+data$Destination <- as.factor(data$HomePlanet)
+data$VIP <- as.factor(data$VIP)
+set.seed(123)
+training.samples <- data$Transported %>%
+  createDataPartition(p = 0.85, list = FALSE)
+train.data <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+```
+
+# Training
+```{r}
+set.seed(123)
+model <- train(
+  Transported ~., data = train.data, method = "rf",
+trControl = trainControl("cv", number = 10), importance = T
+)
+```
+
+
+```{r} 
+model$bestTune
+model$finalModel
+```
+
+# Sensitivity, specificity, and overall accuracy for trainset.
+```{r}
+2363/(2363+465)
+2115/(2115+673)
+(2115+2363)/(2115+2363+673+465)
+```
+
+# Predict with testset.
+```{r}
+pred <- model %>% predict(test.data)
+table(pred,test.data$Transported)
+```
+
+# Sensitivity, specificity, and overall for testset.
+```{r}
+402/(402+117)
+374/(374+97)
+(374+402)/(374+402+97+117)
+```
+
+# Variance Importance Measure
+```{r}
+# Plot MeanDecreaseAccuracy
+varImpPlot(model$finalModel, type = 1)
+
+# Plot MeanDecreaseGini
+varImpPlot(model$finalModel, type = 2)
+varImp(model, type = 1)
+```
+
+# Plot
+```{r}
+varImp(model, type = 1)
+```

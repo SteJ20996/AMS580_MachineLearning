@@ -1,0 +1,102 @@
+---
+title: "AMS 580 project Kaggle: Spaceship Titanic, using Neural Network"
+author: "Yizhen Jia"
+date: "2022/4/15"
+output: word_document
+---
+
+```{r}
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+if (!requireNamespace("neuralnet")) install.packages('neuralnet')
+
+library(tidyverse)
+library(caret)
+library(neuralnet)
+
+```
+
+
+```{r}
+train.data  <- read.csv('~/Desktop/Spring 2022/AMS 580/580 group proj/spaceship-titanic/spcshipTtn-train.csv')
+train.data  <- subset(train.data, select = -c(PassengerId, Cabin, Name))
+train.data <- na.omit(train.data)
+train.data$HomePlanet_1 = ifelse(train.data$HomePlanet == "Earth", 1, 0)
+train.data$HomePlanet_2 = ifelse(train.data$HomePlanet == "Europa", 1, 0)
+train.data$HomePlanet_3 = ifelse(train.data$HomePlanet == "Mars", 1, 0)
+train.data = subset(train.data, select = -c(HomePlanet))
+train.data$CryoSleep = ifelse(train.data$CryoSleep == "True", 1, 0)
+train.data$VIP = ifelse(train.data$VIP == "True", 1, 0)
+train.data$Destination_1 = ifelse(train.data$Destination == "TRAPPIST-1e", 1, 0)
+train.data$Destination_2 = ifelse(train.data$Destination == "55 Cancri e", 1, 0)
+train.data$Destination_3 = ifelse(train.data$Destination == "PSO J318.5-22", 1, 0)
+train.data = subset(train.data, select = -c(Destination))
+train.data$Transported = ifelse(train.data$Transported == "True", 1, 0)
+
+str(train.data)
+
+set.seed(123)
+training.samples <- train.data$Transported %>%
+  createDataPartition(p = 0.9, list = FALSE)
+Ttrain.data  <- train.data[training.samples, ]
+Ttest.data <- train.data[-training.samples, ]
+
+str(Ttrain.data) # 6859 obs
+str(Ttest.data) # 761 obs
+```
+
+Q2
+```{r}
+set.seed(123)
+model = neuralnet(Transported~., data = Ttrain.data,  hidden = 0, err.fct = "sse", linear.output = F, stepmax=1e7)
+plot(model, rep = "best") # plot the model
+
+probabilities = predict(model, Ttest.data)
+predicted.classes = ifelse(probabilities > 0.5, 1, 0 )
+
+```
+
+```{r}
+(c = confusionMatrix(factor(predicted.classes), factor(Ttest.data$Transported), positive = "1"))# confusion matrix
+```
+
+Q3
+```{r}
+set.seed(123)
+model2 = neuralnet(Transported~., data = Ttrain.data, hidden = 0, err.fct = "ce", linear.output = F, stepmax=1e7)
+plot(model2, rep = "best") # plot the model
+
+probabilities = predict(model2, Ttest.data)
+predicted.classes = ifelse(probabilities > 0.5, 1, 0)
+
+(c2 = confusionMatrix(factor(predicted.classes), factor(Ttest.data$Transported), positive = "1")) # confusion matrix
+```
+
+Q4
+```{r}
+set.seed(123)
+model <- glm(Transported~., family = binomial, data = Ttrain.data)
+model
+```
+The CE Loss function model better ensembles logistic regression model.
+
+```{r}
+probabilities <- model %>% predict(Ttest.data, type = 'response')
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+confusionMatrix(factor(predicted.classes), factor(Ttest.data$Transported), positive = '1')
+```
+
+Q5
+```{r}
+set.seed(123)
+model3 = neuralnet(Transported~., data = Ttrain.data, hidden = 3, err.fct = "sse", linear.output = F,stepmax=1e7)
+plot(model3, rep = "best") # plot the model
+
+probabilities = predict(model3, Ttest.data)
+predicted.classes = ifelse(probabilities > 0.5, 1, 0)
+
+(c3 = confusionMatrix(factor(predicted.classes), factor(Ttest.data$Transported), positive = "1")) # confusion matrix
+
+
+```
+
